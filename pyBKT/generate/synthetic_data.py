@@ -39,8 +39,6 @@ def synthetic_data(model, lengths, resources = None):
     datastruct["lengths"] = lengths
     datastruct["resources"] = resources
 
-    print(time() - start)
-
     return datastruct
 
 def create_synthetic_data(model, starts, lengths, resources):
