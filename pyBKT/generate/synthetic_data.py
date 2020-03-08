@@ -6,7 +6,7 @@
 # Last edited: 26 February 2020         #
 #########################################
 
-import numpy as np, numexpr as ne
+import numpy as np
 from numpy.random import uniform
 from time import time
 from pyBKT.generate import synthetic_data_helper
@@ -28,7 +28,7 @@ def synthetic_data(model, lengths, resources = None):
     starts = (starts - lengths + 1)[: len(starts)]
     syn_data = synthetic_data_helper.create_synthetic_data(model, starts, lengths, resources)
     d = syn_data['data']
-    syn_data["data"] = ne.evaluate('d + 1')
+    syn_data["data"] = d + 1 
 
     syn_data["data"][:, resources != 1] = 0 #no data emitted unless resource == 1
 
@@ -46,18 +46,18 @@ def create_synthetic_data(model, starts, lengths, resources):
         STARTS and RESOURCES. """
     learns, forgets, guesses, slips = \
             model['learns'], model['forgets'], model['guesses'], model['slips']
-    inverted_guess = ne.evaluate('1 - guesses')
+    inverted_guess = 1 - guesses
     num_res, num_subparts, num_seqs, num_guesses = \
             len(learns), len(slips), len(starts), len(guesses)
     use_ne = len(guesses) >= 1000
     initial_dist = np.array([1 - model['prior'], model['prior']])
 
     as_matrix = np.empty((2, 2 * num_res))
-    interleave(as_matrix[0], ne.evaluate('1 - learns'), forgets)
-    interleave(as_matrix[1], learns, ne.evaluate('1 - forgets'))
+    interleave(as_matrix[0], 1 - learns, forgets)
+    interleave(as_matrix[1], learns, 1 - forgets)
 
     req_length = lengths[:num_seqs]
-    big_t = int(ne.evaluate('sum(req_length)'))
+    big_t = int(sum(req_length))
 
     all_stateseqs, all_data, result = \
             np.empty((1, big_t), dtype = np.int32), np.empty((num_subparts, big_t), dtype = np.int32), {}

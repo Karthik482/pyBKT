@@ -9,10 +9,14 @@ PYTHON_INCLUDE_PATH = $(shell python3-config --includes)
 
 O2_LIB = -O2
 
+#where eigen was installed.
 EIGEN_INCLUDE_PATH = -I./Eigen
 
-# BOOST_PYTHON_INCLUDE_PATH = -I$(shell whereis boost | awk '{print $2}')
-
+#numpy include path
+#this should change for anaconda?
+#need to get this more programmaticaly.
+#NUMPY_INCLUDE_PATH = -I/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/numpy/core/include
+#NUMPY_INCLUDE_PATH = -I/Users/cgaray/anaconda/lib/python3.5/site-packages/numpy/core/include/
 NUMPY_INCLUDE_PATH = -I$(shell cat np-include.info)
 
 ALL_OPTS = $(PYTHON_INCLUDE_PATH) $(O2_LIB) $(EIGEN_INCLUDE_PATH) \
@@ -31,23 +35,25 @@ PYTHON_LIBS = $(shell python3-config --libs)
 
 #boost-python lib path.
 #need to get this more programmaticaly.
-BOOST_PYTHON_LIB_PATH = -L$(shell whereis libboost_python | cut -d' ' -f 2 | sed 's/libboost.*//')
-
-BOOST_NUMPY_PATH = -L$(shell whereis libboost_numpy | cut -d' ' -f 2 | sed 's/libboost.*//')
+BOOST_PYTHON_LIB_PATH = $(shell ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d">" -f2 | xargs | sed 's/libboost.*//')
 
 #boost-python libs
-BOOST_PYTHON_LIBS = -lboost_python3 -lboost_numpy3 
+BOOST_PYTHON_LIBS = -l$(shell ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d">" -f1 | xargs | sed 's/\.so.*//' | sed 's/.*lib//')
 
 #openmp libs
 OPENMP_LIBS = -fopenmp
 
-ALL_LIBS = -L$(PYTHON_LIB_PATH) $(PYTHON_LIBS) $(BOOST_PYTHON_LIB_PATH) \
-$(BOOST_PYTHON_LIBS) $(BOOST_NUMPY_PATH) $(OPENMP_LIBS)
+ALL_LIBS = -L$(PYTHON_LIB_PATH) $(PYTHON_LIBS) -L$(BOOST_PYTHON_LIB_PATH) \
+$(BOOST_PYTHON_LIBS) $(OPENMP_LIBS)
 
 #-------------------
 
-default: generate/synthetic_data_helper.so fit/E_step.so fit/predict_onestep_states.so
-	@python test/hand_specified_model3.py
+default:
+	@python3 setup.py
+
+setup: generate/synthetic_data_helper.so fit/E_step.so fit/predict_onestep_states.so
+	@python3 test/hand_specified_model3.py
+	@rm -f np-include.info
 
 generate/synthetic_data_helper.so: generate/synthetic_data_helper.o
 	@$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w

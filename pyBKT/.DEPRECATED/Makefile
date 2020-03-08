@@ -38,7 +38,7 @@ PYTHON_LIBS = $(shell python3-config --libs)
 BOOST_PYTHON_LIB_PATH = $(shell ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d">" -f2 | xargs | sed 's/libboost.*//')
 
 #boost-python libs
-BOOST_PYTHON_LIBS = -l$(shell ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d">" -f1 | xargs | sed 's/\.so.*//')
+BOOST_PYTHON_LIBS = -l$(shell ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d">" -f1 | xargs | sed 's/\.so.*//' | sed 's/.*lib//')
 
 #openmp libs
 OPENMP_LIBS = -fopenmp
@@ -48,26 +48,30 @@ $(BOOST_PYTHON_LIBS) $(OPENMP_LIBS)
 
 #-------------------
 
-default: generate/synthetic_data_helper.so fit/E_step.so fit/predict_onestep_states.so
-	@python test/hand_specified_model3.py
+default:
+	@python3 setup.py
+
+setup: generate/synthetic_data_helper.so fit/E_step.so fit/predict_onestep_states.so
+	@python3 test/hand_specified_model3.py
+	@rm -f np-include.info
 
 generate/synthetic_data_helper.so: generate/synthetic_data_helper.o
-	$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w
+	@$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w
 
 generate/synthetic_data_helper.o: generate/synthetic_data_helper.cpp Makefile
-	$(CXX) $< $(ALL_OPTS) -c -fPIC -o $@ -w
+	@$(CXX) $< $(ALL_OPTS) -c -fPIC -o $@ -w
 
 fit/E_step.so: fit/E_step.o
-	$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w
+	@$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w
 
 fit/E_step.o: fit/E_step.cpp Makefile
-	$(CXX) $< $(ALL_OPTS) -c -fPIC -o $@ -w
+	@$(CXX) $< $(ALL_OPTS) -c -fPIC -o $@ -w
 
 fit/predict_onestep_states.so: fit/predict_onestep_states.o
-	$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w
+	@$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w
 
 fit/predict_onestep_states.o: fit/predict_onestep_states.cpp Makefile
-	$(CXX) $< $(ALL_OPTS) -c -fPIC -o $@ -w
+	@$(CXX) $< $(ALL_OPTS) -c -fPIC -o $@ -w
 
 clean:
 	rm -rf generate/*.so generate/*.o fit/*.so fit/*.o

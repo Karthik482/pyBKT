@@ -46,8 +46,12 @@ $(BOOST_PYTHON_LIBS) $(BOOST_NUMPY_PATH) $(OPENMP_LIBS)
 
 #-------------------
 
-default: generate/synthetic_data_helper.so fit/E_step.so fit/predict_onestep_states.so
-	@python test/hand_specified_model3.py
+default:
+	@python3 setup.py
+
+setup: generate/synthetic_data_helper.so fit/E_step.so fit/predict_onestep_states.so
+	@python3 test/hand_specified_model3.py
+	@rm -f np-include.info
 
 generate/synthetic_data_helper.so: generate/synthetic_data_helper.o
 	@$(CXX) $< $(ALL_LIBS) -Wl,-rpath,$(PYTHON_LIB_PATH) -shared -o $@ -w

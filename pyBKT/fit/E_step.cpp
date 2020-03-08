@@ -3,7 +3,7 @@
 //  synthetic_data_helper
 //
 //  Created by Cristián Garay on 11/16/16.
-//  Revised and edited by Anirudhan Badrinath on 27/02/20.
+//  Copyright © 2016 Cristian Garay. All rights reserved.
 //
 
 #define NPY_NO_DEPRECATED_API NPY_1_11_API_VERSION
@@ -14,7 +14,7 @@
 #include <Eigen/Core>
 #include <omp.h>
 #include <boost/python.hpp>
-#include <boost/python/numpy.hpp>
+#include <boost/python/numeric.hpp>
 #include <boost/python/ptr.hpp>
 #include <Python.h>
 #include <numpy/ndarrayobject.h>
@@ -23,15 +23,82 @@ using namespace Eigen;
 using namespace std;
 using namespace boost::python;
 
-namespace p = boost::python;
-namespace np = boost::python::numpy;
+#if PY_VERSION_HEX >= 0x03000000
+void *
+#else
+void
+#endif
+init_numpy(){
+    //Py_Initialize;
+    import_array();
+}
 
 //original comment:
 //"TODO if we aren't outputting gamma, don't need to write it to memory (just
 //need t and t+1), so we can save the stack array for each HMM at the cost of
 //a branch"
 
-dict run(dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarray& emission_softcounts, numpy::ndarray& init_softcounts, int num_outputs){
+/*struct double_to_python_float
+{
+    static PyObject* convert(double const& d)
+      {
+        return boost::python::incref(
+          boost::python::object(d).ptr());
+      }
+};*/
+
+//numpy scalar converters.
+template <typename T, NPY_TYPES NumPyScalarType>
+struct enable_numpy_scalar_converter
+{
+  enable_numpy_scalar_converter()
+  {
+    // Required NumPy call in order to use the NumPy C API within another
+    // extension module.
+    // import_array();
+    init_numpy();
+
+    boost::python::converter::registry::push_back(
+      &convertible,
+      &construct,
+      boost::python::type_id<T>());
+  }
+
+  static void* convertible(PyObject* object)
+  {
+    // The object is convertible if all of the following are true:
+    // - is a valid object.
+    // - is a numpy array scalar.
+    // - its descriptor type matches the type for this converter.
+    return (
+      object &&                                                    // Valid
+      PyArray_CheckScalar(object) &&                               // Scalar
+      PyArray_DescrFromScalar(object)->type_num == NumPyScalarType // Match
+    )
+      ? object // The Python object can be converted.
+      : NULL;
+  }
+
+  static void construct(
+    PyObject* object,
+    boost::python::converter::rvalue_from_python_stage1_data* data)
+  {
+    // Obtain a handle to the memory block that the converter has allocated
+    // for the C++ type.
+    namespace python = boost::python;
+    typedef python::converter::rvalue_from_python_storage<T> storage_type;
+    void* storage = reinterpret_cast<storage_type*>(data)->storage.bytes;
+
+    // Extract the array scalar type directly into the storage.
+    PyArray_ScalarAsCtype(object, storage);
+
+    // Set convertible to indicate success.
+    data->convertible = storage;
+  }
+};
+
+//dict create_synthetic_data(dict& model, numeric::array& starts, numeric::array& lengths, numeric::array& resources)
+dict run(dict& data, dict& model, numeric::array& trans_softcounts, numeric::array& emission_softcounts, numeric::array& init_softcounts, int num_outputs){
     //TODO: check if parameters are null.
     //TODO: check that dicts have the required members.
     //TODO: check that all parameters have the right sizes.
@@ -39,26 +106,26 @@ dict run(dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarr
 
     IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
 
-    numpy::ndarray alldata = extract<numpy::ndarray>(data["data"]); //multidimensional array, so i need to keep extracting arrays.
+    numeric::array alldata = extract<numeric::array>(data["data"]); //multidimensional array, so i need to keep extracting arrays.
     int bigT = len(alldata[0]); //this should be the number of columns in the alldata object. i'm assuming is 2d array.
     int num_subparts = len(alldata);
 
-    numpy::ndarray allresources = extract<numpy::ndarray>(data["resources"]);
+    numeric::array allresources = extract<numeric::array>(data["resources"]);
 
-    numpy::ndarray starts = extract<numpy::ndarray>(data["starts"]);
+    numeric::array starts = extract<numeric::array>(data["starts"]);
 
     int num_sequences = len(starts);
 
-    numpy::ndarray lengths = extract<numpy::ndarray>(data["lengths"]);
+    numeric::array lengths = extract<numeric::array>(data["lengths"]);
 
-    numpy::ndarray learns = extract<numpy::ndarray>(model["learns"]);
+    numeric::array learns = extract<numeric::array>(model["learns"]);
     int num_resources = len(learns);
 
-    numpy::ndarray forgets = extract<numpy::ndarray>(model["forgets"]);
+    numeric::array forgets = extract<numeric::array>(model["forgets"]);
 
-    numpy::ndarray guesses = extract<numpy::ndarray>(model["guesses"]);
+    numeric::array guesses = extract<numeric::array>(model["guesses"]);
 
-    numpy::ndarray slips = extract<numpy::ndarray>(model["slips"]);
+    numeric::array slips = extract<numeric::array>(model["slips"]);
 
     double prior = extract<double>(model["prior"]);
 
@@ -101,9 +168,12 @@ dict run(dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarr
     all_emission_softcounts.setZero();
     Array2d all_initial_softcounts(2, 1); //should i use these dimensions? the same as the original vector??
     all_initial_softcounts.setZero();*/
-    double* r_trans_softcounts = (double*) malloc(2*2*num_resources * sizeof(double));
-    double* r_emission_softcounts = (double*) malloc(2*2*num_subparts * sizeof(double));
-    double* r_init_softcounts = (double*) malloc(2*1 * sizeof(double));;
+    //cout << "all_trans_softcounts" << all_trans_softcounts << endl;
+    //cout << "all_emission_softcounts" << all_emission_softcounts << endl;
+    //cout << "all_initial_softcounts" << all_initial_softcounts << endl;
+    double r_trans_softcounts[2*2*num_resources];
+    double r_emission_softcounts[2*2*num_subparts];
+    double r_init_softcounts[2*1];
     Map<ArrayXXd,Aligned> all_trans_softcounts(r_trans_softcounts,2,2*num_resources);
     all_trans_softcounts.setZero();
     Map<Array2Xd,Aligned> all_emission_softcounts(r_emission_softcounts,2,2*num_subparts);
@@ -123,6 +193,11 @@ dict run(dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarr
     Map<Array2Xd,Aligned> alpha_out(NULL,2,bigT);
     double s_total_loglike = 0;
     double *total_loglike = &s_total_loglike;
+    //cout << "likelihoods_out" << likelihoods_out << endl;
+    //cout << "gamma_out" << gamma_out << endl;
+    //cout << "alpha_out" << alpha_out << endl;
+    //cout << "s_total_loglike " << s_total_loglike << endl;
+    //cout << "total_loglike " << total_loglike << endl;
 
     //TODO: FIX THIS!!! why is he doing this??
     /* switch (num_outputs)
@@ -142,7 +217,7 @@ dict run(dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarr
     }*/
     double r_likelihoods_out[2*bigT];
     double r_gamma_out[2*bigT];
-    double* r_alpha_out = (double*) malloc(2 * bigT * sizeof(double));
+    double r_alpha_out[2*bigT];
 
     new (&likelihoods_out) Map<Array2Xd,Aligned>(r_likelihoods_out,2,bigT);
     new (&gamma_out) Map<Array2Xd,Aligned>(r_gamma_out,2,bigT);
@@ -201,24 +276,31 @@ dict run(dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarr
             Map<MatrixXd,Aligned> alpha(s_alpha,2,T);
             alpha.col(0) = initial_distn * likelihoods.col(0);
             norm = alpha.col(0).sum();
+            //cout << "norm: " << norm << endl;
             alpha.col(0) /= norm;
             contribution = log(norm);
+            //cout << "contribution " << contribution << endl;
             if(normalizeLengths) {
                 contribution = contribution / T;
             }
             loglike += contribution;
+            //cout << "loglike2 " << loglike << endl;
 
             for (int t=0; t<T-1; t++) {
                 int64_t resources_temp = extract<int64_t>(allresources[sequence_start+t]);
                 alpha.col(t+1) = (As.block(0,2*(resources_temp-1),2,2) * alpha.col(t)).array()
                     * likelihoods.col(t+1);
+                //cout << "likelihoods.col(t+1) " << likelihoods.col(t+1) << endl;
                 norm = alpha.col(t+1).sum();
+                //cout << "norm: " << norm << endl;
                 alpha.col(t+1) /= norm;
                 contribution = log(norm);
+                //cout << "contribution: " << contribution << endl;
                 if(normalizeLengths) {
                     contribution = contribution / T;
                 }
                 loglike += contribution;
+                //cout << "loglike " << loglike << endl;
             }
 
             //// backward messages and statistic counting
@@ -275,36 +357,54 @@ dict run(dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarr
             all_trans_softcounts += trans_softcounts_temp;
             all_emission_softcounts += emission_softcounts_temp;
             all_initial_softcounts += init_softcounts_temp;
+            //cout << "loglike " << loglike << endl;
             *total_loglike += loglike;
         }
     }
+
     dict result;
     result["total_loglike"] = *total_loglike;
 
+    //cout << "r_trans_softcounts " << r_trans_softcounts << endl;
 
-    numpy::ndarray all_trans_softcounts_arr = numpy::from_data(r_trans_softcounts, numpy::dtype::get_builtin<double>(), boost::python::make_tuple(num_resources, 2, 2),
-                                                               boost::python::make_tuple(32, 16, 8), boost::python::object());
+    npy_intp all_trans_softcounts_dims[3] = {num_resources,2,2}; //TODO: just put directly this array into the PyArray_SimpleNewFromData function?
+    PyObject * all_trans_softcounts_pyObj = PyArray_New(&PyArray_Type, 3, all_trans_softcounts_dims, NPY_DOUBLE, NULL, &r_trans_softcounts, 0, NPY_ARRAY_CARRAY, NULL);
+    boost::python::handle<> all_trans_softcounts_handle( all_trans_softcounts_pyObj );
+    boost::python::numeric::array all_trans_softcounts_arr( all_trans_softcounts_handle );
     result["all_trans_softcounts"] = all_trans_softcounts_arr;
 
-
-    numpy::ndarray all_emission_softcounts_arr = numpy::from_data(r_emission_softcounts, numpy::dtype::get_builtin<double>(), boost::python::make_tuple(num_subparts, 2, 2),
-                                                               boost::python::make_tuple(32, 16, 8), boost::python::object());
+    npy_intp all_emission_softcounts_dims[3] = {num_subparts,2,2}; //TODO: just put directly this array into the PyArray_SimpleNewFromData function?
+    PyObject * all_emission_softcounts_pyObj = PyArray_New(&PyArray_Type, 3, all_emission_softcounts_dims, NPY_DOUBLE, NULL, &r_emission_softcounts, 0, NPY_ARRAY_CARRAY, NULL);
+    boost::python::handle<> all_emission_softcounts_handle( all_emission_softcounts_pyObj );
+    boost::python::numeric::array all_emission_softcounts_arr( all_emission_softcounts_handle );
     result["all_emission_softcounts"] = all_emission_softcounts_arr;
 
-    numpy::ndarray all_initial_softcounts_arr = numpy::from_data(r_init_softcounts, numpy::dtype::get_builtin<double>(), boost::python::make_tuple(2, 1),
-                                                               boost::python::make_tuple(8, 8), boost::python::object());
+    npy_intp all_initial_softcounts_dims[2] = {2,1}; //TODO: just put directly this array into the PyArray_SimpleNewFromData function?
+    PyObject * all_initial_softcounts_pyObj = PyArray_New(&PyArray_Type, 2, all_initial_softcounts_dims, NPY_DOUBLE, NULL, &r_init_softcounts, 0, NPY_ARRAY_CARRAY, NULL);
+    boost::python::handle<> all_initial_softcounts_handle( all_initial_softcounts_pyObj );
+    boost::python::numeric::array all_initial_softcounts_arr( all_initial_softcounts_handle );
     result["all_initial_softcounts"] = all_initial_softcounts_arr;
 
-    numpy::ndarray alpha_out_arr = numpy::from_data(r_alpha_out, numpy::dtype::get_builtin<double>(), boost::python::make_tuple(2, bigT),
-                                                               boost::python::make_tuple(bigT * 8, 8), boost::python::object());
-    result["alpha_out"] = alpha_out_arr;
+    npy_intp alpha_out_dims[2] = {2,bigT}; //TODO: just put directly this array into the PyArray_SimpleNewFromData function?
+    PyObject * alpha_out_pyObj = PyArray_New(&PyArray_Type, 2, alpha_out_dims, NPY_DOUBLE, NULL, &r_alpha_out, 0, NPY_ARRAY_CARRAY, NULL);
+    boost::python::handle<> alpha_out_handle( alpha_out_pyObj );
+    boost::python::numeric::array alpha_out_arr( alpha_out_handle );
+    result["alpha"] = alpha_out_arr;
 
     return(result);
 }
 
 
 BOOST_PYTHON_MODULE(E_step){
-    Py_Initialize();
-    numpy::initialize();
+    //import_array();
+    init_numpy();
+    numeric::array::set_module_and_type("numpy", "ndarray");
+    //to_python_converter<double, double_to_python_float>();
+    enable_numpy_scalar_converter<boost::int8_t, NPY_INT8>();
+    enable_numpy_scalar_converter<boost::int16_t, NPY_INT16>();
+    enable_numpy_scalar_converter<boost::int32_t, NPY_INT32>();
+    enable_numpy_scalar_converter<boost::int64_t, NPY_INT64>();
+
     def("run", run);
+
 }

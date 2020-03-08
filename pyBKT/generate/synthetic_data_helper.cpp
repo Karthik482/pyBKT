@@ -3,7 +3,7 @@
 //  synthetic_data_helper
 //
 //  Created by Cristián Garay on 10/15/16.
-//  Revised and edited by Anirudhan Badrinath on 27/02/20.
+//  Copyright © 2016 Cristian Garay. All rights reserved.
 //
 
 #define NPY_NO_DEPRECATED_API NPY_1_11_API_VERSION
@@ -13,7 +13,7 @@
 #include <alloca.h>
 #include <Eigen/Core>
 #include <boost/python.hpp>
-#include <boost/python/numpy.hpp>
+#include <boost/python/numeric.hpp>
 #include <boost/python/ptr.hpp>
 #include <Python.h>
 #include <numpy/ndarrayobject.h>
@@ -22,22 +22,88 @@ using namespace Eigen;
 using namespace std;
 using namespace boost::python;
 
-namespace np = boost::python::numpy;
-namespace p = boost::python;
+#if PY_VERSION_HEX >= 0x03000000
+void *
+#else
+void
+#endif
+init_numpy(){
+    //Py_Initialize;
+    import_array();
+}
 
-dict create_synthetic_data(dict& model, numpy::ndarray& starts, numpy::ndarray& lengths, numpy::ndarray& resources){
+struct double_to_python_float
+{
+    static PyObject* convert(double const& d)
+      {
+        return boost::python::incref(
+          boost::python::object(d).ptr());
+      }
+};
+
+//numpy scalar converters.
+template <typename T, NPY_TYPES NumPyScalarType>
+struct enable_numpy_scalar_converter
+{
+  enable_numpy_scalar_converter()
+  {
+    // Required NumPy call in order to use the NumPy C API within another
+    // extension module.
+    // import_array();
+    init_numpy();
+
+    boost::python::converter::registry::push_back(
+      &convertible,
+      &construct,
+      boost::python::type_id<T>());
+  }
+
+  static void* convertible(PyObject* object)
+  {
+    // The object is convertible if all of the following are true:
+    // - is a valid object.
+    // - is a numpy array scalar.
+    // - its descriptor type matches the type for this converter.
+    return (
+      object &&                                                    // Valid
+      PyArray_CheckScalar(object) &&                               // Scalar
+      PyArray_DescrFromScalar(object)->type_num == NumPyScalarType // Match
+    )
+      ? object // The Python object can be converted.
+      : NULL;
+  }
+
+  static void construct(
+    PyObject* object,
+    boost::python::converter::rvalue_from_python_stage1_data* data)
+  {
+    // Obtain a handle to the memory block that the converter has allocated
+    // for the C++ type.
+    namespace python = boost::python;
+    typedef python::converter::rvalue_from_python_storage<T> storage_type;
+    void* storage = reinterpret_cast<storage_type*>(data)->storage.bytes;
+
+    // Extract the array scalar type directly into the storage.
+    PyArray_ScalarAsCtype(object, storage);
+
+    // Set convertible to indicate success.
+    data->convertible = storage;
+  }
+};
+
+dict create_synthetic_data(dict& model, numeric::array& starts, numeric::array& lengths, numeric::array& resources){
     //TODO: check if parameters are null.
     //TODO: check that dicts have the required members.
     //TODO: check that all parameters have the right sizes.
     //TODO: i'm not sending any error messages.
     
-    numpy::ndarray learns = extract<numpy::ndarray>(model["learns"]);
+    numeric::array learns = extract<numeric::array>(model["learns"]);
     int num_resources = len(learns);
 
-    numpy::ndarray forgets = extract<numpy::ndarray>(model["forgets"]);
-    numpy::ndarray guesses = extract<numpy::ndarray>(model["guesses"]);
+    numeric::array forgets = extract<numeric::array>(model["forgets"]);
+    numeric::array guesses = extract<numeric::array>(model["guesses"]);
     
-    numpy::ndarray slips = extract<numpy::ndarray>(model["slips"]);
+    numeric::array slips = extract<numeric::array>(model["slips"]);
     int num_subparts = len(slips);
     
     Vector2d initial_distn;
@@ -60,9 +126,9 @@ dict create_synthetic_data(dict& model, numpy::ndarray& starts, numpy::ndarray& 
     }
     
     //// outputs
-    int* all_stateseqs = (int*) malloc(bigT * sizeof(int));
-    int* all_data = (int*) malloc(num_subparts * bigT * sizeof(int)); //used to be int8_t
-    *all_data = 0;
+    int all_stateseqs[1][bigT]; //used to be int8_t
+    int all_data[num_subparts][bigT]; //used to be int8_t
+    all_data[0][0] = 0;
     dict result;
     
     /* COMPUTATION */
@@ -74,34 +140,46 @@ dict create_synthetic_data(dict& model, numpy::ndarray& starts, numpy::ndarray& 
         Vector2d nextstate_distr = initial_distn;
 
         for (int t=0; t<T; t++) {
-            *(all_stateseqs + sequence_start + t) = nextstate_distr(0) < ((double) rand()) / ((double) RAND_MAX); //always all_stateseqs[0]?
+            all_stateseqs[0][sequence_start + t] = nextstate_distr(0) < ((double) rand()) / ((double) RAND_MAX); //always all_stateseqs[0]?
             for (int n=0; n<num_subparts; n++) {
-                *(all_data + n * (bigT) + sequence_start + t) = ((*(all_stateseqs + sequence_start + t)) ? extract<double>(slips[n]) : (1-extract<double>(guesses[n]))) < (((double) rand()) / ((double) RAND_MAX));
+                all_data[n][sequence_start+t] = ((all_stateseqs[0][sequence_start + t]) ? extract<double>(slips[n]) : (1-extract<double>(guesses[n]))) < (((double) rand()) / ((double) RAND_MAX));
             }
             
-            nextstate_distr = As.col(2*(extract<int64_t>(resources[sequence_start + t])-1)+*(all_stateseqs + sequence_start + t)); //extract int is right??
+            nextstate_distr = As.col(2*(extract<int64_t>(resources[sequence_start + t])-1)+all_stateseqs[0][sequence_start + t]); //extract int is right??
         }
     }
     
     //wrapping results in numpy objects.
-    np::ndarray all_stateseqs_arr = np::from_data(all_stateseqs, np::dtype::get_builtin<int>(), p::make_tuple(1, bigT), p::make_tuple(4 * bigT, 4), p::object());
+    npy_intp all_stateseqs_dims[2] = {1, bigT}; //just put directly this array into the PyArray_SimpleNewFromData function?
+    PyObject * all_stateseqs_pyObj = PyArray_SimpleNewFromData(2, all_stateseqs_dims, NPY_INT, all_stateseqs); //this should be NPY_INT8.
+    boost::python::handle<> all_stateseqs_handle( all_stateseqs_pyObj );
+    boost::python::numeric::array all_stateseqs_handle_arr( all_stateseqs_handle );
     
-    np::ndarray all_data_arr = np::from_data(all_data, np::dtype::get_builtin<int>(), p::make_tuple(num_subparts, bigT), p::make_tuple(4 * bigT, 4), p::object());
+    npy_intp all_data_dims[2] = {num_subparts, bigT}; //just put directly this array into the PyArray_SimpleNewFromData function?
+    PyObject * all_data_pyObj = PyArray_SimpleNewFromData(2, all_data_dims, NPY_INT, all_data); //this should be NPY_INT8.
+    boost::python::handle<> all_data_handle( all_data_pyObj );
+    boost::python::numeric::array all_data_arr( all_data_handle );
     
-    result["stateseqs"] = all_stateseqs_arr;
+    result["stateseqs"] = all_stateseqs_handle_arr;
     result["data"] = all_data_arr;
-
     return(result);
+    
 }
 
 BOOST_PYTHON_MODULE(synthetic_data_helper){
     //import_array();
-    Py_Initialize();
-    np::initialize();
+    init_numpy();
     /*if(PyArray_API == NULL)
 	{
 	    import_array();
 	}*/
+    numeric::array::set_module_and_type("numpy", "ndarray");
+    to_python_converter<double, double_to_python_float>();
+    enable_numpy_scalar_converter<boost::int8_t, NPY_INT8>();
+    enable_numpy_scalar_converter<boost::int16_t, NPY_INT16>();
+    enable_numpy_scalar_converter<boost::int32_t, NPY_INT32>();
+    enable_numpy_scalar_converter<boost::int64_t, NPY_INT64>();
+    
     def("create_synthetic_data", create_synthetic_data);
     
 }
