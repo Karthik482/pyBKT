@@ -14,7 +14,7 @@ from distutils.core import setup, Extension
 
 os.chdir('pyBKT')
 
-FILES = {'Makefile': './', 'synthetic_data_helper.cpp': './generate/',
+FILES = {'synthetic_data_helper.cpp': './generate/',
          'predict_onestep_states.cpp': './fit/', 'E_step.cpp': './fit/'}
 ALL_COMPILE_ARGS = ['-c', '-fPIC', '-w']
 ALL_LINK_ARGS = ['-fopenmp']
@@ -27,7 +27,7 @@ def find_library_dirs():
     os.system("whereis libboost_python | cut -d' ' -f 2 | sed 's/libboost.*//' > np-include.info")
     lst.append(open("np-include.info", "r").read().strip())
     os.system("python3-config --exec-prefix > np-include.info")
-    lst.append(open("np-include.info", "r").read().strip())
+    lst.append(open("np-include.info", "r").read().strip() + "/lib")
     return lst
 
 def find_dep_lib_dirs():
@@ -35,16 +35,16 @@ def find_dep_lib_dirs():
     os.system("ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d\">\" -f2 | xargs | sed 's/libboost.*//' > np-include.info")
     lst.append(open("np-include.info", "r").read().strip())
     os.system("python3-config --exec-prefix > np-include.info")
-    lst.append(open("np-include.info", "r").read().strip())
+    lst.append(open("np-include.info", "r").read().strip() + "/lib")
     return lst
 
 def find_dep_lib_name():
-    os.system("ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d\">\" -f1 | xargs | sed 's/\.so.*//' | sed 's/.*lib//'")
+    os.system("ldconfig -p | grep libboost_python | sort -r | head -n1 | cut -d'>' -f1 | xargs | sed 's/.so.*//' | sed 's/.*lib//' > np-include.info")
     return open("np-include.info", "r").read().strip()
 
 def find_boost_version():
     os.system("cat $(whereis boost | awk '{print $2}')/version.hpp | grep \"#define BOOST_LIB_VERSION\" | awk '{print $3}' | sed 's\\\"\\\\g' > np-include.info")
-    return int(open("np-include.info", "r").read().strip())
+    return int(open("np-include.info", "r").read().strip().replace('_', ''))
 
 def copy_files(l, s):
     for i in l:
@@ -88,8 +88,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name="pyBKT", # Replace with your own username
-    version="1.2",
+    name="pyBKT",
+    version="1.3",
     author="Anirudhan Badrinath",
     author_email="abadrinath@berkeley.edu",
     description="PyBKT",
