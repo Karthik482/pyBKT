@@ -107,8 +107,8 @@ try:
     setup(
         name="pyBKT",
         version="1.3",
-        author="Anirudhan Badrinath",
-        author_email="abadrinath@berkeley.edu",
+        author="Zachary Pardos, Anirudhan Badrinath, Matthew Jade Johnson, Christian Garay",
+        author_email="zp@berkeley.edu, abadrinath@berkeley.edu, mattjj@csail.mit.edu, c.garay@berkeley.edu",
         description="PyBKT",
         url="https://github.com/CAHLR/pyBKT",
         packages=['pyBKT', 'pyBKT.generate', 'pyBKT.fit', 'pyBKT.util'],
@@ -117,7 +117,7 @@ try:
             "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
         ],
-        install_requires = ["numpy"],
+        install_requires = ["numpy", "libboost"],
         ext_modules = [module1, module2, module3]
     )
 except:
