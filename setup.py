@@ -117,7 +117,7 @@ try:
             "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
         ],
-        install_requires = ["numpy", "libboost"],
+        install_requires = ["numpy"],
         ext_modules = [module1, module2, module3]
     )
 except:
