@@ -154,7 +154,7 @@ def inner(x):
         
         # setup for alpha, included in loop for efficiency (to keep it as one loop)
         alpha[:,0] = initial_distn * likelihoods[:,0]
-        norm = sum(alpha[:,0])
+        norm = np.sum(alpha[:,0])
         alpha[:,0] /= norm
         contribution = np.log(norm)
         if normalizeLengths:
