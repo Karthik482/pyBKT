@@ -16,11 +16,8 @@ from multiprocessing import Pool, cpu_count
 gs = globals()
 input = None
 
-def EM_fit(model, data, tol = None, maxiter = None):
+def EM_fit(model, data, tol = 1e-2, maxiter = 100):
 
-    if tol is None: tol = 1e-3
-    if maxiter is None: maxiter = 100
-    
     check_data.check_data(data)
 
     num_subparts = data["data"].shape[0] #mmm the first dimension of data represents each subpart?? interesting.
