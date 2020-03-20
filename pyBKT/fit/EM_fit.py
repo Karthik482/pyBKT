@@ -1,3 +1,12 @@
+#########################################
+# EM_fit.py                             #
+# EM_fit                                #
+#                                       #
+# @author Anirudhan Badrinath           #
+# @author Christian Garay               #
+# Last edited: 20 March 2020            #
+#########################################
+
 import numpy as np
 from time import time
 from pyBKT.util import check_data

@@ -1,3 +1,12 @@
+#########################################
+# predict_onestep.py                    #
+# predict_onestep                       #
+#                                       #
+# @author Anirudhan Badrinath           #
+# @author Christian Garay               #
+# Last edited: 20 March 2020            #
+#########################################
+
 import numpy as np
 from pyBKT.fit.EM_fit import run as E_step_run
 
