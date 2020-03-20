@@ -16,7 +16,7 @@ from multiprocessing import Pool, cpu_count
 gs = globals()
 input = None
 
-def EM_fit(model, data, tol = 1e-2, maxiter = 100):
+def EM_fit(model, data, tol = 1e-3, maxiter = 100):
 
     check_data.check_data(data)
 
