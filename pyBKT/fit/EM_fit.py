@@ -16,7 +16,7 @@ from multiprocessing import Pool, cpu_count
 gs = globals()
 input = None
 
-def EM_fit(model, data, tol = 1e-3, maxiter = 100):
+def EM_fit(model, data, tol = 0.005, maxiter = 100):
 
     check_data.check_data(data)
 
@@ -77,8 +77,6 @@ def run(data, model, trans_softcounts, emission_softcounts, init_softcounts, num
     all_emission_softcounts = np.zeros((2, 2 * num_subparts))
     all_initial_softcounts = np.zeros((2, 1))
 
-    likelihoods_out = np.zeros((2, bigT))
-    gamma_out = np.zeros((2, bigT))
     alpha_out = np.zeros((2, bigT))
 
     total_loglike = np.empty((1,1))
@@ -91,24 +89,24 @@ def run(data, model, trans_softcounts, emission_softcounts, init_softcounts, num
              'alldata': alldata, 'normalizeLengths': normalizeLengths, 'alpha_out': alpha_out}
 
     num_threads = cpu_count()
-    thread_counts = [() for i in range(num_threads + 1)]
-    for thread_num in range(num_threads + 1):
+    thread_counts = [() for i in range(num_threads)]
+    for thread_num in range(num_threads):
         blocklen = 1 + ((num_sequences - 1) // num_threads)
         sequence_idx_start = int(blocklen * thread_num)
         sequence_idx_end = min(sequence_idx_start+blocklen, num_sequences)
         thread_counts[thread_num] = (sequence_idx_start, sequence_idx_end)
-
-    thread_counts = thread_counts[:thread_num]
+    
     p = Pool(len(thread_counts))
     x = p.map(inner, thread_counts)
     p.close()
+
     for i in x:
         total_loglike += i[3]
         all_trans_softcounts += i[0] # + all_trans_softcounts
         all_emission_softcounts += i[1] #+ all_emission_softcounts
         all_initial_softcounts += i[2] #+ all_initial_softcounts
         for sequence_start, T, alpha in i[4]:
-            alpha_out[0:2, sequence_start: sequence_start + T] += alpha
+            alpha_out[:, sequence_start: sequence_start + T] += alpha
     all_trans_softcounts = all_trans_softcounts.flatten(order = 'F')
     all_emission_softcounts = all_emission_softcounts.flatten(order = 'F')
     result = {}
@@ -131,10 +129,11 @@ def inner(x):
     emission_softcounts_temp = np.zeros((2, N_S))
     init_softcounts_temp = np.zeros((2, 1))
     loglike = 0
-    alphas = ()
 
     sequence_idx_start = x[0]
     sequence_idx_end = x[1]
+
+    alphas = [] 
 
     for sequence_index in range(sequence_idx_start, sequence_idx_end):
         sequence_start = starts[sequence_index] - 1
