@@ -62,8 +62,8 @@ def predict_onestep_states(data, model, forward_messages):
     for sequence_index in range(num_sequences):
         sequence_start = starts[sequence_index] - 1
         T = lengths[sequence_index]
-        forward_messages = fd_temp[2 * sequence_start:].reshape((2, T))
-        predictions = all_predictions[2 * sequence_start:].reshape((2, T))
+        forward_messages = fd_temp[2 * sequence_start: 2 * (sequence_start + T)].reshape((2, T))
+        predictions = all_predictions[2 * sequence_start: 2 * (sequence_start + T)].reshape((2, T))
 
         predictions[:, 0] = initial_distn
         for t in range(T - 1):

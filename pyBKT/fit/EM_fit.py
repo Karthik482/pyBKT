@@ -88,17 +88,15 @@ def run(data, model, trans_softcounts, emission_softcounts, init_softcounts, num
              'starts': starts, 
              'lengths': lengths, \
              'num_resources': num_resources, 'num_subparts': num_subparts, \
-             'alldata': alldata, 'normalizeLengths': normalizeLengths}
+             'alldata': alldata, 'normalizeLengths': normalizeLengths, 'alpha_out': alpha_out}
 
     num_threads = cpu_count()
-    thread_counts = [() for i in range(num_threads)]
-    for thread_num in range(num_threads):
+    thread_counts = [() for i in range(num_threads + 1)]
+    for thread_num in range(num_threads + 1):
         blocklen = 1 + ((num_sequences - 1) // num_threads)
         sequence_idx_start = int(blocklen * thread_num)
         sequence_idx_end = min(sequence_idx_start+blocklen, num_sequences)
         thread_counts[thread_num] = (sequence_idx_start, sequence_idx_end)
-        if sequence_idx_start >= num_sequences:
-            break
 
     thread_counts = thread_counts[:thread_num]
     p = Pool(len(thread_counts))
@@ -109,7 +107,8 @@ def run(data, model, trans_softcounts, emission_softcounts, init_softcounts, num
         all_trans_softcounts += i[0] # + all_trans_softcounts
         all_emission_softcounts += i[1] #+ all_emission_softcounts
         all_initial_softcounts += i[2] #+ all_initial_softcounts
-        alpha_out[0: 2, i[5]: i[6]] = i[4]
+        for sequence_start, T, alpha in i[4]:
+            alpha_out[0:2, sequence_start: sequence_start + T] += alpha
     all_trans_softcounts = all_trans_softcounts.flatten(order = 'F')
     all_emission_softcounts = all_emission_softcounts.flatten(order = 'F')
     result = {}
@@ -132,6 +131,7 @@ def inner(x):
     emission_softcounts_temp = np.zeros((2, N_S))
     init_softcounts_temp = np.zeros((2, 1))
     loglike = 0
+    alphas = ()
 
     sequence_idx_start = x[0]
     sequence_idx_end = x[1]
@@ -147,7 +147,7 @@ def inner(x):
             for n in range(num_subparts):
                 data_temp = alldata[n][sequence_start + t]
                 if data_temp != 0:
-                    likelihoods[:,t] *= Bn[:, int(2 * n + int(data_temp == 2))]
+                    likelihoods[:,t] *= Bn[:, 2 * n + int(data_temp == 2)]
         
         # setup for alpha, included in loop for efficiency (to keep it as one loop)
         alpha[:,0] = initial_distn * likelihoods[:,0]
@@ -218,4 +218,5 @@ def inner(x):
                         emission_softcounts_temp[:, (2 * n + int(data_temp_p == 2))] += gamma[:, (T - 1)]
             f = False
         init_softcounts_temp += gamma[:, 0].reshape((2, 1)) 
-    return [trans_softcounts_temp, emission_softcounts_temp, init_softcounts_temp, loglike, alpha, sequence_start, sequence_start + T]
+        alphas.append((sequence_start, T, alpha))
+    return [trans_softcounts_temp, emission_softcounts_temp, init_softcounts_temp, loglike, alphas]
