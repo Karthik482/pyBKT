@@ -134,6 +134,7 @@ def inner(x):
     sequence_idx_end = x[1]
 
     alphas = [] 
+    dot, sum, log = np.dot, np.sum, np.log
 
     for sequence_index in range(sequence_idx_start, sequence_idx_end):
         sequence_start = starts[sequence_index] - 1
@@ -145,46 +146,39 @@ def inner(x):
         for t in range(2):
             for n in range(num_subparts):
                 data_temp = alldata[n][sequence_start + t]
-                if data_temp != 0:
+                if data_temp:
                     likelihoods[:,t] *= Bn[:, 2 * n + int(data_temp == 2)]
         
         # setup for alpha, included in loop for efficiency (to keep it as one loop)
         alpha[:,0] = initial_distn * likelihoods[:,0]
-        norm = np.sum(alpha[:,0])
+        norm = sum(alpha[:,0])
         alpha[:,0] /= norm
-        contribution = np.log(norm)
-        if normalizeLengths:
-            contribution /= T
-        loglike = loglike + contribution
+        contribution = log(norm) / (T if normalizeLengths else 1)
+        loglike += contribution
         resources_temp = allresources[sequence_start + 1]
 
         # combined with t = 2 for efficiency, otherwise we need another loop
         k = 2 * (resources_temp - 1)
-        alpha[:, 1] = (As[0:2, k: k + 2].dot(alpha[:, 0])) * \
+        alpha[:, 1] = dot(As[0:2, k: k + 2], alpha[:, 0]) * \
                   likelihoods[:, 1]
-        norm = np.sum(alpha[:, 1])
+        norm = sum(alpha[:, 1])
         alpha[:, 1] /= norm
-        contribution = np.log(norm)
-        if normalizeLengths:
-            contribution /= T
+        contribution = log(norm) / (T if normalizeLengths else 1)
         loglike += contribution
 
         for t in range(2, T):
             for n in range(num_subparts):
                 data_temp = alldata[n][sequence_start + t]
-                if data_temp != 0:
-                    likelihoods[:,t] *= Bn[:, int(2 * n + int(data_temp == 2))]
+                if data_temp:
+                    likelihoods[:,t] *= Bn[:, 2 * n + int(data_temp == 2)]
             # general loop for alpha calculations
             resources_temp = allresources[sequence_start + t - 1]
             k = 2 * (resources_temp - 1)
-            alpha[:, t] = (As[0:2, k: k + 2].dot(alpha[:, t - 1])) * \
+            alpha[:, t] = dot(As[0:2, k: k + 2], alpha[:, t - 1]) * \
                       likelihoods[:, t]
-            norm = np.sum(alpha[:, t])
+            norm = sum(alpha[:, t])
             alpha[:, t] /= norm
-            contribution = np.log(norm)
-            if normalizeLengths:
-                contribution /= T
-            loglike += contribution
+            loglike += log(norm) / (T if normalizeLengths else 1)
 
         # backward messages and statistic counting
         gamma = np.empty((2, T))
@@ -201,19 +195,19 @@ def inner(x):
             pair = A.copy() # don't want to modify original A 
             pair[0] *= alpha[:, t]
             pair[1] *= alpha[:, t]
-            dotted, gamma_t = A.dot(alpha[:, t]), gamma[:, (t + 1)]
+            dotted, gamma_t = dot(A, alpha[:, t]), gamma[:, (t + 1)]
             pair[:, 0] = (pair[:, 0] * gamma_t) / dotted
             pair[:, 1] = (pair[:, 1] * gamma_t) / dotted
             np.nan_to_num(pair, copy = False)
             trans_softcounts_temp[0: 2, k: k + 2] += pair
-            gamma[:, t] = np.sum(pair, axis = 0)
+            gamma[:, t] = sum(pair, axis = 0)
             for n in range(num_subparts):
                 data_temp = alldata[n][sequence_start+t]
-                if data_temp != 0:
+                if data_temp:
                     emission_softcounts_temp[:, (2 * n + int(data_temp == 2))] += gamma[:, t] 
                 if f:
                     data_temp_p = alldata[n][sequence_start + (T-1)]
-                    if data_temp_p != 0:
+                    if data_temp_p:
                         emission_softcounts_temp[:, (2 * n + int(data_temp_p == 2))] += gamma[:, (T - 1)]
             f = False
         init_softcounts_temp += gamma[:, 0].reshape((2, 1)) 
