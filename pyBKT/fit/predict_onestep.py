@@ -27,7 +27,10 @@ def run(model, data):
     result['all_initial_softcounts'] = init_softcounts
 
     result = E_step_run(data, model, result['all_trans_softcounts'], result['all_emission_softcounts'], result['all_initial_softcounts'], 1)
-
+    for j in range(num_resources):
+        result['all_trans_softcounts'][j] = result['all_trans_softcounts'][j].transpose()
+    for j in range(num_subparts):
+        result['all_emission_softcounts'][j] = result['all_emission_softcounts'][j].transpose()
     state_predictions = predict_onestep_states(data, model, result['alpha_out'])
 
     correct_emission_predictions = model["guesses"]*state_predictions[0,:] + (1-model["slips"])*state_predictions[1,:]
