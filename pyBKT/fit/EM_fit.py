@@ -114,7 +114,7 @@ def run(data, model, trans_softcounts, emission_softcounts, init_softcounts, num
     result["all_trans_softcounts"] = np.reshape(all_trans_softcounts, (num_resources, 2, 2), order = 'C')
     result["all_emission_softcounts"] = np.reshape(all_emission_softcounts, (num_subparts, 2, 2), order = 'C')
     result["all_initial_softcounts"] = all_initial_softcounts
-    result["alpha_out"] = alpha_out
+    result["alpha_out"] = alpha_out.flatten(order = 'F').reshape(alpha_out.shape, order = 'C')
 
     return result
 

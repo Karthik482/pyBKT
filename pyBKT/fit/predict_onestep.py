@@ -27,15 +27,11 @@ def run(model, data):
     result['all_initial_softcounts'] = init_softcounts
 
     result = E_step_run(data, model, result['all_trans_softcounts'], result['all_emission_softcounts'], result['all_initial_softcounts'], 1)
-    for j in range(num_resources):
-        result['all_trans_softcounts'][j] = result['all_trans_softcounts'][j].transpose()
-    for j in range(num_subparts):
-        result['all_emission_softcounts'][j] = result['all_emission_softcounts'][j].transpose()
 
     state_predictions = predict_onestep_states(data, model, result['alpha_out'])
 
     correct_emission_predictions = model["guesses"]*state_predictions[0,:] + (1-model["slips"])*state_predictions[1,:]
-
+    
     return (correct_emission_predictions, state_predictions)
 
 def predict_onestep_states(data, model, forward_messages):
@@ -62,8 +58,8 @@ def predict_onestep_states(data, model, forward_messages):
     for sequence_index in range(num_sequences):
         sequence_start = starts[sequence_index] - 1
         T = lengths[sequence_index]
-        forward_messages = fd_temp[2 * sequence_start: 2 * (sequence_start + T)].reshape((2, T))
-        predictions = all_predictions[2 * sequence_start: 2 * (sequence_start + T)].reshape((2, T))
+        forward_messages = fd_temp[2 * sequence_start: 2 * (sequence_start + T)].reshape((2, T), order = 'F')
+        predictions = all_predictions[2 * sequence_start: 2 * (sequence_start + T)].reshape((2, T), order = 'F')
 
         predictions[:, 0] = initial_distn
         for t in range(T - 1):
@@ -71,7 +67,7 @@ def predict_onestep_states(data, model, forward_messages):
             k = 2 * (resources_temp - 1)
             predictions[:, t + 1] = As[0: 2, k: k + 2].dot(forward_messages[:, t])
 
-    return all_predictions.reshape((2, bigT))
+    return all_predictions.reshape((2, bigT), order = 'F')
 
 def interleave(m, v1, v2):
         m[0::2], m[1::2] = v1, v2
