@@ -1,4 +1,6 @@
 import numpy as np
+import sys
+sys.path.append('../')
 from pyBKT.generate import synthetic_data
 from pyBKT.generate import random_model, random_model_uni
 from pyBKT.fit import EM_fit

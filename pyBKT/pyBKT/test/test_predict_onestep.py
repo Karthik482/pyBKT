@@ -1,4 +1,6 @@
 import numpy as np
+import sys
+sys.path.append('../')
 from pyBKT.generate import synthetic_data
 from pyBKT.fit import predict_onestep
 
@@ -31,3 +33,4 @@ data = synthetic_data.synthetic_data(truemodel, observation_sequence_lengths)
 (correct_predictions, state_predictions) = predict_onestep.run(truemodel, data)
 
 print("finishing...")
+print(correct_predictions, state_predictions)

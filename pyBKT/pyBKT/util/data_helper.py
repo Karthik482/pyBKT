@@ -40,9 +40,31 @@ def assistments_data(skill_name):
   
   starts=np.delete(steps,0)
 
-  resources=[1]*data.size
+  resource_ref = {}
+  resources = []
+  counter = 1
+  for i in df3["answer_type"].values:
+      if i in resource_ref:
+          resources.append(resource_ref[i])
+      else:
+          resource_ref[i] = counter
+          counter += 1
+          resources.append(resource_ref[i])
+
+  #if resource_names is None:
+  #  resources=[1]*data.size
+  #else:
+  #  resources=[]
+  #  temp=np.arange(1,len(resource_names)+1)
+  #  resource_ref=dict(zip(resource_names,temp))
+  #  for i in df3["answer_type"].values:
+  #    if i in resource_ref:
+  #      resources.append(resource_ref[i])
+  #    else:
+  #      raise ValueError("Incorrect resource type specified")
+
+
   resource=np.asarray(resources)
-  
   stateseqs=np.copy(resource)
   lengths=np.resize(lengths,lengths.size-1)
   Data={}
@@ -51,6 +73,7 @@ def assistments_data(skill_name):
   Data["starts"]=np.asarray(starts)
   Data["lengths"]=np.asarray(lengths)
   Data["resources"]=resource
+  Data["resource_names"]=resource_ref
   
   return (Data)
 

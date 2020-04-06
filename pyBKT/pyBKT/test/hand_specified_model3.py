@@ -1,5 +1,5 @@
-import sys, os
-sys.path.append('..')
+import sys
+sys.path.append('../')
 import numpy as np
 from pyBKT.generate import synthetic_data, random_model_uni
 from pyBKT.fit import EM_fit

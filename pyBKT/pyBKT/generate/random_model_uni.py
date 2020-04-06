@@ -3,7 +3,7 @@ import numpy as np
 from pyBKT.util import dirrnd
 
 def random_model_uni(num_resources=None, num_subparts=None, trans_prior=None, given_notknow_prior=None, given_know_prior=None, pi_0_prior=None):
-
+    #print("RMU")
     if num_resources is None: num_resources = 1
     if num_subparts is None: num_subparts = 1
 
@@ -22,7 +22,7 @@ def random_model_uni(num_resources=None, num_subparts=None, trans_prior=None, gi
     #emissions = np.dstack((given_notknow.reshape((num_subparts, 2, 1)), given_know.reshape((num_subparts, 2, 1))))
     emissions = np.stack((np.transpose(given_notknow.reshape((2, num_subparts))), np.transpose(given_know.reshape((2, num_subparts)))), axis=1)
     pi_0 = dirrnd.dirrnd(pi_0_prior)
-
+    #print(As)
     modelstruct = {}
     modelstruct['prior'] = random.random()
     As[:, 1, 0] = np.random.rand(num_resources) * 0.40
@@ -39,5 +39,9 @@ def random_model_uni(num_resources=None, num_subparts=None, trans_prior=None, gi
     modelstruct['As'] = As
     modelstruct['emissions'] = emissions
     modelstruct['pi_0'] = pi_0
-
+    #print(given_notknow)
+    #print(modelstruct['guesses'])
+    #print(' ============================= ')
+    #print(modelstruct['As'])
+    #print("RMU WORKS")
     return(modelstruct)
