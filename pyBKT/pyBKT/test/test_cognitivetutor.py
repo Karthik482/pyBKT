@@ -3,13 +3,16 @@ sys.path.append('../')
 import numpy as np
 from pyBKT.generate import synthetic_data, random_model_uni
 from pyBKT.fit import EM_fit
-from pyBKT.util import assistments_data_helper, check_data
+from pyBKT.util import ct_data_helper, check_data
 from copy import deepcopy
 
-skill_name = "Box and Whisker"
+#parameters classes
+
+num_fit_initializations = 20
 
 #data!
-data = assistments_data_helper.assistments_data("https://drive.google.com/uc?export=download&id=0B3f_gAH-MpBmUmNJQ3RycGpJM0k", skill_name)
+data = ct_data_helper.ct_data("http://m.uploadedit.com/beth/1587157116695.txt")
+
 check_data.check_data(data)
 num_learns = len(data["resource_names"])
 num_gs = len(data["gs_names"])
@@ -25,7 +28,7 @@ for i in range(num_fit_initializations):
 		best_model = fitmodel
 
 print('')
-print('Trained model for %s skill given %d learning rates, %d guess/slip rate' % (skill_name, num_learns, num_gs))
+print('Trained model given %d learning rates, %d guess/slip rate' % (num_learns, num_gs))
 print('\t\tlearned')
 print('prior\t\t%.4f' % (best_model["pi_0"][1][0]))
 for key, value in data["resource_names"].items():

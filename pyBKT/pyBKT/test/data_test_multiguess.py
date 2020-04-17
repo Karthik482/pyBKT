@@ -3,7 +3,7 @@ sys.path.append('../')
 import numpy as np
 from pyBKT.generate import synthetic_data, random_model_uni
 from pyBKT.fit import EM_fit
-from pyBKT.util import data_helper, check_data
+from pyBKT.util import assistments_data_helper, check_data
 from copy import deepcopy
 
 #parameters classes
@@ -12,21 +12,11 @@ num_gs = 2 #number of guess/slip classes
 num_fit_initializations = 20
 skill_name = "Probability of Two Distinct Events"
 
-data = data_helper.assistments_data(skill_name)
+data = assistments_data_helper.assistments_data("https://drive.google.com/uc?export=download&id=0B3f_gAH-MpBmUmNJQ3RycGpJM0k", skill_name, resource_name = None, gs_name = "answer_type")
 check_data.check_data(data)
 num_learns = len(data["resource_names"])
+num_gs = len(data["gs_names"])
 
-data_temp = [[],[]]
-for i in range(len(data["resources"])):
-    for j in range(num_gs):
-        if data["resources"][i] == j+1:
-            data_temp[j].append(data["data"][0][i])
-        else:
-            data_temp[j].append(0)
-data["data"] = np.asarray(data_temp, dtype='int32')
-print(data_temp[0])
-print(data_temp[1])
-#data["resources"] = np.asarray(resource_temp)
 #fit models, starting with random initializations
 
 num_fit_initializations = 5
@@ -52,7 +42,7 @@ for key, value in data["resource_names"].items():
 for key, value in data["resource_names"].items():
     print('Forget: %s\t\t%.4f' % (key, best_model['As'][value-1, 0, 1].squeeze()))
 
-for s in range(num_gs):
-    print('guess%d\t\t%.4f' % (s+1, best_model['guesses'][s]))
-for s in range(num_gs):
-    print('slip%d\t\t%.4f' % (s+1, best_model['slips'][s]))
+for key, value in data["gs_names"].items():
+    print('Guess: %s\t\t%.4f' % (key, best_model['guesses'][value-1]))
+for key, value in data["gs_names"].items():
+    print('Slip: %s\t\t%.4f' % (key, best_model['slips'][value-1]))

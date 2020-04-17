@@ -3,8 +3,8 @@ sys.path.append('../')
 import numpy as np
 from pyBKT.generate import synthetic_data, random_model_uni
 from pyBKT.fit import EM_fit, predict_onestep
-from pyBKT.test import accuracy
-from pyBKT.util import data_helper, check_data
+from pyBKT.test import accuracy, rmse
+from pyBKT.util import check_data
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
@@ -18,6 +18,7 @@ def fix_data(data, indices):
     start_temp = [data["starts"][i] for i in indices]
     length_temp = [data["lengths"][i] for i in indices]
     training_data["resource_names"] = data["resource_names"]
+    training_data["gs_names"] = data["gs_names"]
     starts = []
     for i in range(len(start_temp)):
         starts.append(len(resources)+1)
@@ -36,6 +37,7 @@ def fix_data(data, indices):
 def crossvalidate(data, num_gs, num_learns, verbose=False):
     folds = 5
     total = 0
+    acc = 0
     num_fit_initializations = 20
     kf = KFold(folds)
     iteration = 0
@@ -57,7 +59,6 @@ def crossvalidate(data, num_gs, num_learns, verbose=False):
         if verbose:
             print(" ")
             print('Iteration %d' % (iteration))
-            print('Trained model given 1 learning rate, 1 guess/slip rate')
             print('\tlearned')
             print('prior\t%.4f' % (best_model["pi_0"][1][0]))
             for r in range(num_learns):
@@ -73,6 +74,7 @@ def crossvalidate(data, num_gs, num_learns, verbose=False):
         test_data = fix_data(data, test)
         (correct_predictions, state_predictions) = predict_onestep.run(best_model, test_data)
         
-        total += accuracy.compute_accuracy(test_data["data"], correct_predictions)
+        total += rmse.compute_rmse(test_data["data"], correct_predictions)
+        acc += accuracy.compute_acc(test_data["data"], correct_predictions)
     print("Average RMSE: ", total/folds)
-    
+    print("Average Accuracy: ", acc/folds)
