@@ -1,19 +1,23 @@
 import sys
 sys.path.append('../')
 from pyBKT.util import model_helper
+import os
 
-def assistments_data(url, skill_name, resource_name=None, gs_name=None):
+def assistments_data(url, skill_name, resource_name=None, gs_name=None, multilearns2=False, multipriors=True):
   
   import pandas as pd
   import numpy as np
   import io
   import requests
-  
   print(skill_name)
-  s = requests.get(url).content
-  # df = pd.read_csv(io.BytesIO(s))
-  df = pd.read_csv(io.StringIO(s.decode('latin')))
-  # df = pd.read_csv(io.StringIO(s.decode('latin')), names = ['order_id', 'assignment_id', 'user_id', 'assistment_id', 'problem_id', 'original', 'correct', 'attempt_count', 'ms_first_response', 'tutor_mode', 'answer_type', 'sequence_id', 'student_class_id', 'position', 'type', 'base_sequence_id', 'skill_id', 'skill_name', 'teacher_id', 'school_id', 'hint_count', 'hint_total', 'overlap_time', 'template_id', 'answer_id', 'answer_text', 'first_action', 'bottom_hint', 'opportunity', 'opportunity_original'])
+  df = None
+  if url[:4] == "http":
+    s = requests.get(url).content
+    df = pd.read_csv(io.StringIO(s.decode('latin')))
+  else:
+    f = open("data/" + url, "rb")
+    
+    df = pd.read_csv(io.StringIO(f.read().decode('latin')))
   # filter by the skill you want, make sure the question is an 'original'
   # skills = df["skill_name"]
   # for skill_name in skills:
@@ -41,9 +45,11 @@ def assistments_data(url, skill_name, resource_name=None, gs_name=None):
           temp["resource"] = j[resource_name]
       if gs_name is not None:
           temp["gs"] = j[gs_name]
+      if multilearns2:
+          temp["problem_id"] = j["problem_id"]
       converted_df3.append(temp)
   
-  return model_helper.convert_data(converted_df3)
+  return model_helper.convert_data(converted_df3, multipriors)
   
   
  

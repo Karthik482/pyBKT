@@ -1,13 +1,15 @@
 import numpy as np
-def convert_data(df3):
+def convert_data(df3, multipriors):
   # find out how many problems per user, form the start/length arrays
   data=[x["correct"] for x in df3]
-  starts, lengths=[],[]
+  starts, lengths, priors=[],[],[]
   counter, lcounter = 1, 0
   prev_id = -1
   
   for i in df3:
       if i["user_id"] != prev_id:
+          if multipriors:
+              priors.append(i["correct"])
           starts.append(counter)
           prev_id = i["user_id"]
           lengths.append(lcounter)
@@ -16,6 +18,10 @@ def convert_data(df3):
       counter += 1
   lengths.append(lcounter-1)
   lengths = np.asarray(lengths[1:])
+  
+
+
+    
       
   resource_ref = {}
   if "resource" in df3[0]:
@@ -59,12 +65,22 @@ def convert_data(df3):
   resource=np.asarray(resources)
   stateseqs=np.copy(resource)
 
+  permutation_ref = {}
+  permutation = []
+  #if "problem_id" in df3[0]:
+  #  pid_to_idx = {}
+  #  for i in df3:
+  #     if i["problem_id"] not in pid_to_idx:
+
+      
+
   Data["stateseqs"]=np.asarray([stateseqs],dtype='int32')
   Data["starts"]=np.asarray(starts)
   Data["lengths"]=np.asarray(lengths)
   Data["resources"]=resource
   Data["resource_names"]=resource_ref
   Data["gs_names"]=gs_ref
+  Data["priors"]=priors
   if "resource" not in df3[0]:
     resource_ref["Overall Rate"]=1  
   if "gs" not in df3[0]:

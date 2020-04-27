@@ -29,7 +29,7 @@ def run(model, trans_softcounts, emission_softcounts, init_softcounts):
     model['slips'] = model['emissions'][:, 1, 0]
 
     temp = np.sum(init_softcounts[:])
-    model['pi_0'] = init_softcounts[:] / np.sum(init_softcounts[:])
+    model['pi_0'] = init_softcounts[:] / (0.000001 + np.sum(init_softcounts[:]))
     model['prior'] = model['pi_0'][1][0]
 
     return(model)
